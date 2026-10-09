@@ -33,17 +33,17 @@ Requirements that follow from this hardware:
 
 | Concern | Choice |
 |---|---|
-| Language / UI | C# 12 with **WPF**, targeting `net8.0-windows` x64; SDK **9.0.311** pinned in `global.json`; .NET 8 Desktop Runtime required |
+| Language / UI | C# 14 with **WPF**, targeting `net10.0-windows` x64 (.NET 10 LTS, supported until November 2028); SDK **10.0.401** pinned in `global.json`; .NET 10 Desktop Runtime required for framework-dependent builds |
 | Hotkey | Low-level keyboard hook (`SetWindowsHookEx` with `WH_KEYBOARD_LL`) via P/Invoke |
-| Audio | **NAudio 2.2.1**, `WaveInEvent` capture at 16 kHz mono PCM16, converted to float32 for recognition |
+| Audio | **NAudio 2.2.1** (its net6.0-windows build runs on .NET 10; 3.x is a breaking major version and was not adopted), `WaveInEvent` capture at 16 kHz mono PCM16, converted to float32 for recognition |
 | Speech-to-text | **sherpa-onnx 1.13.8** (`org.k2fsa.sherpa.onnx`), Windows x64 CPU runtime |
 | STT model | **NVIDIA Parakeet TDT 0.6B v2**, English only; INT8 ONNX by default (four CPU threads), with optional full-precision profile |
 | Cleanup | Deterministic rules plus personal dictionary; LLM phase skipped |
-| Tray icon | **H.NotifyIcon.Wpf 2.3.2** |
-| Storage | SQLite (`Microsoft.Data.Sqlite` **8.0.30**) for history and dictionary; JSON settings |
+| Tray icon | **H.NotifyIcon.Wpf 2.4.1** |
+| Storage | SQLite (`Microsoft.Data.Sqlite` **10.0.12**) for history and dictionary; JSON settings |
 | Installer / updates | **Velopack 1.2.0** runtime and pinned packaging CLI |
-| DI / hosting | `Microsoft.Extensions.Hosting` **8.0.1** |
-| Logging | `Serilog.Extensions.Hosting` **8.0.0**, `Serilog.Sinks.File` **7.0.0** |
+| DI / hosting | `Microsoft.Extensions.Hosting` **10.0.12** |
+| Logging | `Serilog.Extensions.Hosting` **10.0.0**, `Serilog.Sinks.File` **7.0.0** |
 
 For each NuGet package, check its README for the current package names and runtime requirements before pinning versions. Don't rely on memory for this.
 

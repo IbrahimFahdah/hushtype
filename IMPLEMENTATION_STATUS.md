@@ -77,7 +77,7 @@ The user requested skipping LLM cleanup and proceeding through settings, brandin
 
 ## Review notes
 
-- SDK 9.0.311 builds the net8.0-windows target; .NET 8 Desktop Runtime is required to launch the published app.
+- SDK 10.0.401 builds the net10.0-windows target (.NET 10 LTS). The packaged app is self-contained; framework-dependent builds need the .NET 10 Desktop Runtime.
 - Model revisions, sizes and SHA-256 checksums are pinned in src/Hushtype.Speech/models.json, including FP32 external weights. Model/license attribution is in MODEL_NOTICE.md.
 - All Win32 P/Invoke declarations remain in Hushtype.Platform/NativeMethods.cs.
 - Parakeet TDT does not accept Whisper initial prompts; future dictionary support must use explicit post-processing corrections.

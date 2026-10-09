@@ -59,7 +59,7 @@ History stores original/final text, target process name and timings. Production 
 
 ## Build and verify
 
-Windows x64; SDK 9.0.311 is selected by `global.json`. Framework-dependent development builds need .NET 8 Desktop Runtime.
+Windows x64; SDK 10.0.401 is selected by `global.json`. Framework-dependent development builds need .NET 10 Desktop Runtime.
 
 ```powershell
 dotnet restore Hushtype.sln
@@ -109,8 +109,8 @@ Update hosting, signing credentials, clean-machine installation and a real hoste
 
 ## Dependencies and attribution
 
-Direct packages: NAudio 2.2.1, H.NotifyIcon.Wpf 2.3.2, org.k2fsa.sherpa.onnx 1.13.8, Microsoft.Extensions.Hosting 8.0.1, Serilog.Extensions.Hosting 8.0.0, Serilog.Sinks.File 7.0.0, Microsoft.Data.Sqlite 8.0.30, Velopack 1.2.0. Lock files pin transitive versions.
+Direct packages: NAudio 2.2.1, H.NotifyIcon.Wpf 2.4.1, org.k2fsa.sherpa.onnx 1.13.8, Microsoft.Extensions.Hosting 10.0.12, Serilog.Extensions.Hosting 10.0.0, Serilog.Sinks.File 7.0.0, Microsoft.Data.Sqlite 10.0.12, Velopack 1.2.0. Lock files pin transitive versions.
 
 NVIDIA Parakeet TDT 0.6B v2 is CC BY 4.0 licensed. The ONNX conversion repositories, revisions and checksums are in [models.json](src/Hushtype.Speech/models.json); attribution is in [MODEL_NOTICE.md](MODEL_NOTICE.md). sherpa-onnx is Apache 2.0 licensed.
 
-Primary references: [NVIDIA model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2), [sherpa C# API](https://k2-fsa.github.io/sherpa/onnx/csharp-api/index.html), [SQLite package](https://www.nuget.org/packages/Microsoft.Data.Sqlite/8.0.30), [Velopack integration](https://docs.velopack.io/integrating/overview).
+Primary references: [NVIDIA model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2), [sherpa C# API](https://k2-fsa.github.io/sherpa/onnx/csharp-api/index.html), [SQLite package](https://www.nuget.org/packages/Microsoft.Data.Sqlite/10.0.12), [Velopack integration](https://docs.velopack.io/integrating/overview).
