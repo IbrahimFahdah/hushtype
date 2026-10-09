@@ -6,7 +6,7 @@ A Windows push-to-talk dictation app in the spirit of Wispr Flow. You hold a hot
 
 **Approved update (9 October 2026):** English-only dictation with NVIDIA Parakeet TDT 0.6B v2 through sherpa-onnx on Windows CPU, replacing Whisper/CUDA. Default: INT8 with four inference threads; optional FP32. Parakeet v3 through FluidAudio was considered, but the implemented Windows backend is Parakeet v2 through sherpa-onnx. No CUDA installation is needed for this backend.
 
-**Current status (9 October 2026):** Phases 1, 2, 4 and 5 are implemented. The user confirmed live dictation works, with six runs at 360–631 ms release-to-paste. **Phase 3 is skipped by user request; no LLM or Ollama integration is included.** Settings, local history, dictionary and branding checks pass. Phase 6 produces a self-contained installer, portable ZIP and update packages; update hosting and code signing are not configured. Remaining manual checks include real-app/multi-monitor behavior and installation on a clean machine. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+**Current status (9 October 2026, updated for 0.2.0):** Phases 1, 2, 4 and 5 are implemented, plus the 0.2.0 backlog (.NET 10, hotkey thread and watchdog, Right Ctrl default, dictionary/history features, typing mode, microphone notices, pause-aware splitting, power-throttling opt-out). The user confirmed live dictation works, with six runs at 360–631 ms release-to-paste. **Phase 3 is skipped by user request; no LLM or Ollama integration is included.** Settings, local history, dictionary and branding checks pass. Phase 6 produces a self-contained installer, portable ZIP and update packages; update hosting and code signing are not configured. Remaining manual checks include real-app/multi-monitor behavior and installation on a clean machine. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
 ---
 
@@ -123,6 +123,8 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 - Convert to **16 kHz mono float32** (the format Parakeet expects), using NAudio's `WdlResamplingSampleProvider` or `MediaFoundationResampler`.
 - Emit RMS level about 30 times per second for the overlay waveform.
 - Cap recordings at about 5 minutes.
+- The silence gate adapts to the recording's noise floor (10th-percentile frame RMS × 4, clamped to 0.0015–0.006).
+- When nothing is transcribed: ≥ 1.5 s of exact zero samples is reported as a likely blocked microphone (notification opens `ms-settings:privacy-microphone`); a hold of ≥ 1 s with a peak frame RMS below 0.01 is reported as too quiet, naming a muted or low-level default microphone.
 - If the default device changes (for example a headset plugged in), re-open capture.
 
 ### Transcription (`Hushtype.Speech`)
@@ -132,7 +134,9 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 - Runtime: ONNX CPU; log the selected provider, precision and thread count. No CUDA toolkit installation is required.
 - **Personal dictionary:** explicit post-processing corrections for names and jargon are implemented in phase 4. Parakeet TDT does not accept Whisper initial prompts; do not claim prompt-based vocabulary biasing.
 - Language: fixed English. Arabic and multilingual recognition are outside the approved scope.
-- Process long utterances in **20-second windows with one second of overlap** and merge matching overlap words. Keep the model warm across windows. A 66-second repeated fixture retained all six passages; live long-recording coverage remains pending. Differing overlap recognition can leave duplicates or vary punctuation.
+- Process long utterances in windows of up to **20 seconds**, cutting at the quietest 20 ms frame in the last 3 seconds before each boundary and keeping 0.25 s past the cut on both sides; merge matching overlap words. Keep the model warm across windows. Measured against fixed 20 s windows with 1 s overlap: the 66-second repeated fixture is exact either way; an 85-second synthetic-speech clip went from 3 inserted words (a duplicated phrase at a boundary) to 0, with deletions and substitutions unchanged. Live long-recording coverage remains pending.
+- Opt out of Windows execution-speed power throttling (EcoQoS). Forcing it on made an 11 s transcription take 3.9 s instead of 0.52 s.
+- Model files are fully hashed once; a `.verified` marker (size, last-write time, hash) lets later launches skip unchanged files.
 - Native decoding runs off the UI thread and cannot be interrupted mid-decode. Honor cancellation after decode and before insertion; retain the recognizer until active work completes.
 - Trim leading and trailing silence before inference. If the clip is basically silent, skip it, because ASR can hallucinate on silence (for example "Thanks for watching!").
 
@@ -147,7 +151,7 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 3. Send **Ctrl+V** via `SendInput`. Make sure no modifiers are still logically down first, since the user just released the hotkey.
 4. Wait about 150 ms, then restore the original clipboard.
 - **Known limitation:** you can't paste into elevated (admin) windows from a non-elevated app because of UIPI. Detect this case and show a toast instead of failing silently.
-- Optional fallback setting: "type characters" mode via `SendInput` with `KEYEVENTF_UNICODE`, for apps that block paste.
+- Setting "Insert text by: Paste / Type". Type sends short single-line text (≤ 200 UTF-16 units) as `KEYEVENTF_UNICODE` input in chunks of about 40 units, never splitting a surrogate pair, with a real `VK_RETURN` for newlines; longer text is pasted. Injected input carries a `dwExtraInfo` tag. The clipboard is left untouched.
 
 ### Overlay pill (`Hushtype.App`)
 - A borderless, transparent WPF window with `Topmost=true`, `ShowActivated=false` and `ShowInTaskbar=false`, plus extended styles `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT`. **It must never take focus**, or the paste lands in the pill.

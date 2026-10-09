@@ -92,3 +92,36 @@ The user requested skipping LLM cleanup and proceeding through settings, brandin
 - Final artifacts: Setup 89,804,984 bytes; portable ZIP 85,325,560 bytes; full update package 85,333,688 bytes. All six listed release-file SHA-256 checksums were verified.
 - No app installation, auto-start activation, release upload or signing was performed. Portable top-level launcher is Hushtype.exe; keep its current directory and Update.exe together.
 - The extracted portable top-level Hushtype.exe launcher also passed the tray/DI/hook smoke test. It starts the app with its current folder as working directory; use an absolute --data-dir path when launching through that wrapper. Evidence: .build/portable-launcher-absolute/logs.
+
+## 0.2.0 backlog — 9 October 2026
+
+All items in task.md were implemented on branch `backlog-0.2` and verified on this machine (i9-13900H, AC power). Release build: zero warnings/errors. **130 automated checks pass:** Core 52, Cleanup 18, Speech/model-cache 15, Data/settings 45.
+
+- **.NET 10 LTS.** `net10.0-windows`, SDK 10.0.401 pinned. Microsoft.Extensions.Hosting and Microsoft.Data.Sqlite 10.0.12, Serilog.Extensions.Hosting 10.0.0, H.NotifyIcon.Wpf 2.4.1 (native net10 build). NAudio stays 2.2.1 (net6.0-windows build runs on .NET 10; 3.x is a breaking major). sherpa-onnx 1.13.8 and Velopack 1.2.0 already ship net8/net10 builds. All projects restore for win-x64 so lock files no longer flip between build and publish.
+- **Hotkey thread.** The low-level hook runs on its own thread and message loop. `--verify-hotkey` blocks the UI thread for 2 s while a tagged F9 press and release are injected; both events arrive afterwards and the hook keeps working.
+- **Watchdog.** Every 250 ms while held: observed keys use `GetAsyncKeyState`; all keys end on an input-desktop change (lock/UAC) or an elevated foreground window. The diagnostic confirmed a swallowed key never shows as down in `GetAsyncKeyState` (so it is not used for swallowed keys) and that a missed Right Ctrl release is ended by the watchdog.
+- **Right Ctrl default** for new settings (observed, not swallowed); saved choices kept; AltGr warning shown for Right Alt.
+- **Dictionary/history.** Search on both tabs (Unicode case folding, literal wildcards), per-entry on/off with schema v2 migration, non-blocking trigger warnings, applied-correction badges stored as JSON, run-together/hyphenated matching, NFC normalization, plain-text import/export. Snapshots in `.build/settings-p2` were inspected.
+- **Typing mode.** `--verify-overlay` typed 59 UTF-16 units including an emoji into its own editor with the clipboard untouched, then pasted a 287-character text and restored the clipboard.
+- **Microphone notices.** Unit-tested: 1.5 s of exact zeros → blocked microphone; ≥ 1 s hold with peak frame RMS < 0.01 → too quiet. *Not confirmed live:* setting the desktop-app microphone registry value to Deny (restored afterwards) produced no difference, and both microphones here deliver ~1 LSB (the default Intel array is at 8% input level). Manual check: turn off "Let desktop apps access your microphone" in Settings, then dictate.
+- **Adaptive silence gate:** 10th-percentile frame RMS × 4, clamped 0.0015–0.006; the old fixed 0.006 is the ceiling.
+- **Pause-aware splitting** (`--boundary-benchmark`, word alignment vs reference):
+
+  | Fixture | Fixed 20 s / 1 s overlap (ins/del/sub) | Cut at pauses |
+  | --- | --- | --- |
+  | jfk-long, 66 s (6 × JFK) | 0 / 0 / 0 | 0 / 0 / 0 |
+  | tts-long, 85 s (Windows TTS, synthetic) | 3 / 2 / 3 | 0 / 2 / 3 |
+
+  The fixed-window insertions were a duplicated phrase at the first boundary; pause cuts left one stray period. No real long recording was available.
+- **Power throttling** (`--throttle-benchmark`, hidden window, 11 s fixture, 2 × 20 runs, AC):
+
+  | Mode | Median (ms) | p90 (ms) |
+  | --- | --- | --- |
+  | System default | 516 / 510 | 542 / 525 |
+  | Throttling off | 519 / 516 | 528 / 535 |
+  | EcoQoS forced on | 3886 / 3889 | 4093 / 3993 |
+
+  Forced EcoQoS reproduces the 2–3 s+ slowdowns; the app now opts out. Windows did not throttle on its own during these runs. Battery not measured.
+- **Smaller items.** Uninspectable target processes are treated as not elevated; model files skip re-hashing via a `.verified` marker (INT8 verification 1.36 s → 2 ms; launch-to-transcript 7.2 s → 4.1 s); `--speech-threads abc` gives a clear message; a second launch shows the running instance, and a diagnostic blocked by a running instance exits with code 2; Arabic leftovers removed.
+- **Package.** `scripts/Package.ps1 -Version 0.2.0 -UpdateUrl https://github.com/IbrahimFahdah/hushtype` produced Setup (93,617,783 bytes), portable ZIP, full and delta (from 0.1.0) packages; all checksums verified. The extracted portable app (`current/Hushtype.App.exe`, version 0.2.0) passed the smoke test and transcribed the 11 s fixture in 566 ms. Setup was not run on this machine; clean-machine install and a hosted upgrade remain manual.
+- Final self-contained build passed `--smoke-test`, `--verify-hotkey`, `--verify-overlay` (with insertion), `--verify-settings`, `--probe-hardware` and `--verify-speech` (66 s fixture, all six passages). Evidence: `.build/final-0.2.0-*`, `.build/throttle`, `.build/portable-0.2.0*`.

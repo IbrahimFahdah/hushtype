@@ -19,7 +19,7 @@ Packaged release files are in `artifacts/releases`:
 - The full `.nupkg` and `releases.win.json` support future updates; they are not the normal launch files.
 - `SHA256SUMS.txt` records package checksums.
 
-The packaged app includes .NET. Setup can install the Visual C++ runtime prerequisite. The packages are unsigned. Models are downloaded separately on first use: about 661 MB for INT8 or 2.51 GB for FP32. Every file is verified against pinned size and SHA-256 values. Once cached, speech recognition works offline.
+The packaged app includes .NET. Setup can install the Visual C++ runtime prerequisite. The packages are unsigned. Models are downloaded separately on first use: about 661 MB for INT8 or 2.51 GB for FP32. Every file is verified against pinned size and SHA-256 values; later launches skip re-hashing files whose size and timestamp are unchanged. Once cached, speech recognition works offline.
 
 ## First use
 
@@ -27,7 +27,7 @@ The packaged app includes .NET. Setup can install the Visual C++ runtime prerequ
 2. Choose **Start dictating**.
 3. Click a text field, hold **Right Ctrl**, speak English and release.
 
-Closing the welcome window keeps the app running in the tray. Use **Quit** to exit. If setup fails, use **Retry setup**, **Microphone access**, or choose another microphone in Settings.
+Closing the welcome window keeps the app running in the tray. Launching Hushtype again shows the running instance. Use **Quit** to exit. If setup fails, use **Retry setup**, **Microphone access**, or choose another microphone in Settings.
 
 ## Settings and personal dictionary
 
@@ -36,6 +36,7 @@ Tray → **Settings** provides:
 - Right Ctrl (default), Right Alt, F8, F9 or F10 as the hold-to-talk key.
 - Windows default or a specific microphone. Hotkey and microphone changes apply while idle without restarting.
 - INT8/FP32 and CPU threads. These model options apply on the next launch.
+- **Insert text by**: Paste (default) or Type. Type sends short single-line text (up to 200 characters) as keystrokes and leaves the clipboard untouched; longer text is still pasted.
 - Sounds, rule cleanup, history recording, launch at Windows sign-in and automatic updates when a release source is configured.
 
 Tray → **Dictionary** lets you map a recognized phrase to your preferred spelling. For example, `cube cuddle` → `kubectl`. Matches use whole words/phrases, ignore case, prefer longer phrases and never cascade into another correction. Multi-word phrases also match when run together or hyphenated (`cubecuddle`, `cube-cuddle`). Each correction can be switched off without deleting it, both tabs can be searched, and **Import…/Export…** use a plain-text format (`heard -> replacement`, `# off: heard -> replacement` for disabled entries, `#` for comments). Saving warns, without blocking, about common single words, very short phrases and replacements identical to the phrase. Replacement spelling/capitalization is preserved. Corrections stay active when rule cleanup is disabled.
@@ -71,7 +72,7 @@ dotnet run --project tests/Hushtype.Speech.Tests -c Release
 dotnet run --project tests/Hushtype.Data.Tests -c Release
 ```
 
-These are executable assertion harnesses: **dotnet test does not run them**. Current total: 108 checks.
+These are executable assertion harnesses: **dotnet test does not run them**. Current total: 130 checks.
 
 Automatic-exit desktop diagnostics:
 
@@ -83,14 +84,21 @@ Automatic-exit desktop diagnostics:
 .\artifacts\Hushtype\Hushtype.App.exe --verify-speech path-to-speech.wav --data-dir .build/parakeet-verification
 ```
 
-The overlay diagnostic types only into its own editor and saves state snapshots. The settings diagnostic switches microphone/hotkey, restores previous settings, checks a dictionary correction in a separate diagnostic database and renders the settings/onboarding/history/dictionary windows. The hotkey diagnostic injects tagged F9 and Right Ctrl presses: it blocks the UI thread for 2 s during a press, checks a swallowed key is not ended early, and checks the watchdog ends a press whose key-up was missed. Use a dedicated test directory. Close any running Hushtype instance first because the app is single-instance.
+Measurement harnesses (models reused from the data directory):
+
+```powershell
+dotnet run --project tests/Hushtype.Speech.Tests -c Release -- --boundary-benchmark speech.wav reference.txt .build/parakeet-verification
+dotnet run --project tests/Hushtype.Speech.Tests -c Release -- --throttle-benchmark speech.wav .build/parakeet-verification 20 default|off|on result.json
+```
+
+The overlay diagnostic types only into its own editor and saves state snapshots; it also checks typing mode (Unicode including an emoji, clipboard untouched) and paste fallback with clipboard restoration. The hardware probe also records 2 s and logs the default microphone's mute state and input level. The settings diagnostic switches microphone/hotkey, restores previous settings, checks a dictionary correction in a separate diagnostic database and renders the settings/onboarding/history/dictionary windows. The hotkey diagnostic injects tagged F9 and Right Ctrl presses: it blocks the UI thread for 2 s during a press, checks a swallowed key is not ended early, and checks the watchdog ends a press whose key-up was missed. Use a dedicated test directory. Close any running Hushtype instance first because the app is single-instance; a diagnostic blocked by a running instance exits with code 2.
 
 See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact results and remaining manual coverage.
 
 ## Package and updates
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1 -Version 0.1.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Package.ps1 -Version 0.2.0 -UpdateUrl https://github.com/IbrahimFahdah/hushtype
 ```
 
 The script pins Velopack 1.2.0, publishes a self-contained Windows x64 build and creates installer/portable/update artifacts. No files are uploaded or installed by the script. Icons can be regenerated from the code-defined artwork with `scripts/New-BrandAssets.ps1`.
@@ -103,9 +111,10 @@ Update hosting, signing credentials, clean-machine installation and a real hoste
 
 - Right Alt, F8, F9 and F10 are reserved while enabled; on AltGr layouts choosing Right Alt blocks characters such as @, € and |. The default Right Ctrl is passed through to the active app.
 - If a key release is missed (lock screen, UAC prompt, focus moving to an administrator window), recording ends within about 250 ms instead of running to the five-minute cap.
-- Changing foreground windows or targeting an elevated app refuses the paste; the processed text is copied for recovery. Clipboard format restoration is best effort.
-- Long speech uses 20-second windows with one second of overlap. Differently recognized overlap can leave duplicates or vary punctuation.
-- RMS silence gating can reject very quiet speech. Personal accents and technical vocabulary still need live testing.
+- Changing foreground windows or targeting an elevated app refuses the paste (a target process that cannot be inspected is treated as not elevated); the processed text is copied for recovery. Clipboard format restoration is best effort.
+- Long speech uses windows of up to 20 seconds, cut at the quietest moment in the last 3 seconds before each boundary with a small overlap. A cut can occasionally leave a stray punctuation mark.
+- The silence gate adapts to the recording's noise floor (between 0.0015 and 0.006 RMS). When a hold of a second or more produces nothing, Hushtype says so: digital silence suggests Windows is blocking microphone access (the notification opens the privacy settings), and a very low level names a muted or low-level default microphone. Personal accents and technical vocabulary still need live testing.
+- Hushtype opts out of Windows execution-speed power throttling, which made inference about 7.5 times slower when forced.
 - Phase 2's native focus/editor checks passed; multiple monitors/mixed DPI and the full target-app checklist remain manual.
 
 ## Dependencies and attribution
