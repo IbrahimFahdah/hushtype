@@ -6,6 +6,8 @@ namespace Hushtype.Speech;
 public sealed class ModelManager(HttpClient http, string directory)
 {
     private readonly SemaphoreSlim gate = new(1);
+    // Full SHA-256 passes performed; cached verifications are not counted.
+    public int FilesHashed { get; private set; }
     public async Task<string> EnsureAsync(SpeechModelSpec spec, IProgress<ModelProgress> progress, CancellationToken ct)
     {
         await gate.WaitAsync(ct);
@@ -20,7 +22,7 @@ public sealed class ModelManager(HttpClient http, string directory)
                 ct.ThrowIfCancellationRequested();
                 var path = Path.Combine(folder, file.Name);
                 progress.Report(new("Verifying " + file.Name, (double)completed / total));
-                if (!await ValidAsync(path, file, ct))
+                if (!Verified(path, file) && !await ValidAsync(path, file, ct))
                 {
                     var temporary = path + "." + Guid.NewGuid().ToString("N") + ".partial";
                     try
@@ -51,6 +53,7 @@ public sealed class ModelManager(HttpClient http, string directory)
                         progress.Report(new("Verifying " + file.Name, (double)completed / total));
                         if (!await ValidAsync(temporary, file, ct)) throw new InvalidDataException("Model checksum mismatch. Please retry setup.");
                         File.Move(temporary, path, true);
+                        MarkVerified(path, file);
                     }
                     finally { if (File.Exists(temporary)) File.Delete(temporary); }
                 }
@@ -61,11 +64,32 @@ public sealed class ModelManager(HttpClient http, string directory)
         }
         finally { gate.Release(); }
     }
-    private static async Task<bool> ValidAsync(string path, ModelFile spec, CancellationToken ct)
+    private async Task<bool> ValidAsync(string path, ModelFile spec, CancellationToken ct)
     {
         if (!File.Exists(path) || new FileInfo(path).Length != spec.Size) return false;
-        await using var stream = File.OpenRead(path);
-        var hash = await SHA256.HashDataAsync(stream, ct);
-        return Convert.ToHexString(hash).Equals(spec.Sha256, StringComparison.OrdinalIgnoreCase);
+        FilesHashed++;
+        bool valid;
+        await using (var stream = File.OpenRead(path))
+            valid = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct)).Equals(spec.Sha256, StringComparison.OrdinalIgnoreCase);
+        if (valid && !path.EndsWith(".partial")) MarkVerified(path, spec);
+        return valid;
+    }
+    // A marker beside each verified file records size, last-write time and hash, so unchanged
+    // files skip the full re-hash on later launches. Any change to the file forces a re-hash.
+    private static string Marker(string path) => path + ".verified";
+    private static string Stamp(string path, ModelFile spec)
+    {
+        var info = new FileInfo(path);
+        return $"{info.Length}|{info.LastWriteTimeUtc.Ticks}|{spec.Sha256.ToUpperInvariant()}";
+    }
+    private static bool Verified(string path, ModelFile spec)
+    {
+        try { return File.Exists(path) && new FileInfo(path).Length == spec.Size && File.Exists(Marker(path)) && File.ReadAllText(Marker(path)) == Stamp(path, spec); }
+        catch (IOException) { return false; }
+    }
+    private static void MarkVerified(string path, ModelFile spec)
+    {
+        try { File.WriteAllText(Marker(path), Stamp(path, spec)); }
+        catch (IOException) { } // The cache is an optimization; verification already passed.
     }
 }

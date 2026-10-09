@@ -54,8 +54,15 @@ try
     var path = Path.Combine(folder, "encoder.onnx");
     Check(File.ReadAllBytes(path).SequenceEqual(payload), "Valid download accepted");
     Check(handler.LastUri!.Contains("/resolve/pinned-revision/encoder.onnx"), "Download revision pinned");
+    var hashedAfterDownload = manager.FilesHashed;
     await manager.EnsureAsync(spec, progress, default);
     Check(handler.Calls == 1, "Valid offline cache avoids HTTP");
+    Check(manager.FilesHashed == hashedAfterDownload, "Unchanged verified file is not re-hashed");
+    var restarted = new ModelManager(http, testFolder); await restarted.EnsureAsync(spec, progress, default);
+    Check(restarted.FilesHashed == 0, "Restarted manager trusts the marker");
+    File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(-5));
+    await restarted.EnsureAsync(spec, progress, default);
+    Check(restarted.FilesHashed == 1 && handler.Calls == 1, "Changed timestamp forces a re-hash, not a download");
     File.WriteAllBytes(path, [5,4,3,2,1]);
     await manager.EnsureAsync(spec, progress, default);
     Check(handler.Calls == 2 && File.ReadAllBytes(path).SequenceEqual(payload), "Corrupt cache replaced after verification");
