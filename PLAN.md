@@ -139,7 +139,7 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 ### Cleanup (`Hushtype.Cleanup`)
 - The LLM phase is skipped. No Ollama model, timeout, per-app style or network cleanup is needed.
 - Optional rule pass removes filler words, fixes spacing/capitalization/punctuation and collapses accidental repeated words while preserving supported intentional repetitions and repeated digits.
-- Dictionary entries map a recognized phrase to its replacement. Matching is case-insensitive at whole-word/phrase boundaries; longer matches win. Replacement is a single pass, so corrections do not cascade. Exact replacement capitalization is preserved.
+- Dictionary entries map a recognized phrase to its replacement. Matching is case-insensitive at whole-word/phrase boundaries; longer matches win. Multi-word phrases also match run-together and hyphenated forms (`cubecuddle`, `cube-cuddle`). Text and phrases are normalized to Unicode NFC before matching. Replacement is a single literal pass, so corrections do not cascade. Exact replacement capitalization is preserved.
 - Dictionary corrections remain active when the rule pass is disabled in Settings.
 ### Insertion (`Hushtype.Platform`)
 1. Save the current clipboard, including non-text formats where possible (`IDataObject`).
@@ -164,8 +164,9 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 
 ### Data
 - SQLite at `%LOCALAPPDATA%\Hushtype\hushtype.db`, or under `--data-dir`.
-- `history(id, created_at, app, raw_text, final_text, duration_ms, stt_ms, cleanup_ms)` keeps the newest 500 processed dictations when history is enabled. History is off by default, includes text from refused pastes, and supports copy, selected deletion, clear-all and a three-second delayed re-paste into the foreground app.
-- `dictionary(heard, replacement)` stores deterministic phrase corrections. Terms can be added/updated or removed without restarting.
+- `history(id, created_at, app, raw_text, final_text, duration_ms, stt_ms, cleanup_ms, corrections)` keeps the newest 500 processed dictations when history is enabled. History is off by default, includes text from refused pastes, and supports search, copy, selected deletion, clear-all and a three-second delayed re-paste into the foreground app. `corrections` is a JSON list of the dictionary corrections that fired (matched form → replacement × count), shown as badges; it is never logged.
+- `dictionary(heard, replacement, enabled)` stores deterministic phrase corrections. Terms can be searched, added/updated, turned off (kept but not applied) or removed without restarting, and imported/exported as plain text (`heard -> replacement`, `# off:` for disabled entries). Saving shows non-blocking warnings for common single words, phrases of three characters or fewer, and replacements identical to the phrase.
+- Schema version 2 (`PRAGMA user_version`); version 1 databases gain the new columns on startup.
 - Database work runs off the UI thread. History-write failures do not prevent dictation from being pasted.
 ### Logging
 - Use Serilog writing to a rolling file in `%LOCALAPPDATA%\Hushtype\logs\`.

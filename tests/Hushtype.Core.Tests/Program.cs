@@ -88,7 +88,7 @@ sealed class Fakes : IAudioRecorder, ITranscriber, ITextPostProcessor, ITextInse
     public float[] Stop() { Stops++; return new float[16000]; }
     public void Dispose() { }
     public Task<string> TranscribeAsync(float[] samples, TranscribeOptions options, CancellationToken ct) { Calls++; return Result.Task.WaitAsync(ct); }
-    public Task<string> ProcessAsync(string raw, TargetApp context, CancellationToken ct) => Task.FromResult("Testing.");
+    public Task<CleanedText> ProcessAsync(string raw, TargetApp context, CancellationToken ct) => Task.FromResult(new CleanedText("Testing.", []));
     public Task InsertAsync(string text, TargetApp target, CancellationToken ct) { Inserted = text; return Task.CompletedTask; }
     public TargetApp GetCurrent() => new("notepad.exe", "Test", 1);
 }

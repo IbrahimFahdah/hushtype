@@ -5,10 +5,10 @@ namespace Hushtype.Cleanup;
 
 public sealed class RuleBasedPostProcessor : ITextPostProcessor
 {
-    public Task<string> ProcessAsync(string raw, TargetApp context, CancellationToken ct)
+    public Task<CleanedText> ProcessAsync(string raw, TargetApp context, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(Clean(raw));
+        return Task.FromResult(new CleanedText(Clean(raw), []));
     }
     public static string Clean(string raw)
     {

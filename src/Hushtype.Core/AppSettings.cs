@@ -27,7 +27,12 @@ public sealed record AppSettings
     }
 }
 
-public sealed record DictionaryCorrection(string Heard, string Replacement);
+public sealed record DictionaryCorrection(string Heard, string Replacement, bool Enabled = true);
+// What a correction actually matched in the text (e.g. "cube-cuddle"), never logged.
+public sealed record AppliedCorrection(string Matched, string Replacement, int Count)
+{
+    public override string ToString() => $"{Matched} → {Replacement}" + (Count > 1 ? $" ×{Count}" : "");
+}
 public sealed record DictationRecord(DateTimeOffset CreatedAt, string App, string RawText, string FinalText,
-    double DurationMs, double SttMs, double CleanupMs);
+    double DurationMs, double SttMs, double CleanupMs, IReadOnlyList<AppliedCorrection>? Corrections = null);
 public sealed record HistoryEntry(long Id, DictationRecord Record);

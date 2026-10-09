@@ -38,13 +38,13 @@ Tray → **Settings** provides:
 - INT8/FP32 and CPU threads. These model options apply on the next launch.
 - Sounds, rule cleanup, history recording, launch at Windows sign-in and automatic updates when a release source is configured.
 
-Tray → **Dictionary** lets you map a recognized phrase to your preferred spelling. For example, `cube cuddle` → `kubectl`. Matches use whole words/phrases, ignore case, prefer longer phrases and never cascade into another correction. Replacement spelling/capitalization is preserved. Corrections stay active when rule cleanup is disabled.
+Tray → **Dictionary** lets you map a recognized phrase to your preferred spelling. For example, `cube cuddle` → `kubectl`. Matches use whole words/phrases, ignore case, prefer longer phrases and never cascade into another correction. Multi-word phrases also match when run together or hyphenated (`cubecuddle`, `cube-cuddle`). Each correction can be switched off without deleting it, both tabs can be searched, and **Import…/Export…** use a plain-text format (`heard -> replacement`, `# off: heard -> replacement` for disabled entries, `#` for comments). Saving warns, without blocking, about common single words, very short phrases and replacements identical to the phrase. Replacement spelling/capitalization is preserved. Corrections stay active when rule cleanup is disabled.
 
 LLM cleanup was deliberately skipped. The optional rule pass removes fillers and tidies spacing and punctuation.
 
 ## History
 
-History recording is **off by default**. Enable it in Settings to keep the latest 500 processed dictations locally, including text from refused pastes. Tray → **History** supports copy, deletion and **Paste in 3 seconds**. For re-paste, select an entry, click the button, then focus your destination text field during the three-second delay.
+History recording is **off by default**. Enable it in Settings to keep the latest 500 processed dictations locally, including text from refused pastes. Tray → **History** supports search (final text, original text and app), copy, deletion and **Paste in 3 seconds**. Badges under an entry show which dictionary corrections were applied. For re-paste, select an entry, click the button, then focus your destination text field during the three-second delay.
 
 History stores original/final text, target process name and timings. Production logs contain timing/error information rather than dictated text. Explicit file-based speech diagnostics log their test transcript. Audio remains in memory.
 
@@ -71,7 +71,7 @@ dotnet run --project tests/Hushtype.Speech.Tests -c Release
 dotnet run --project tests/Hushtype.Data.Tests -c Release
 ```
 
-These are executable assertion harnesses: **dotnet test does not run them**. Current total: 81 checks.
+These are executable assertion harnesses: **dotnet test does not run them**. Current total: 108 checks.
 
 Automatic-exit desktop diagnostics:
 

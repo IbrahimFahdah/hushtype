@@ -18,6 +18,7 @@ public interface IAudioRecorder : IDisposable
     event EventHandler<float>? LevelChanged;
 }
 public interface ITranscriber { Task<string> TranscribeAsync(float[] samples, TranscribeOptions options, CancellationToken ct); }
-public interface ITextPostProcessor { Task<string> ProcessAsync(string raw, TargetApp context, CancellationToken ct); }
+public sealed record CleanedText(string Text, IReadOnlyList<AppliedCorrection> Corrections);
+public interface ITextPostProcessor { Task<CleanedText> ProcessAsync(string raw, TargetApp context, CancellationToken ct); }
 public interface ITextInserter { Task InsertAsync(string text, TargetApp target, CancellationToken ct); }
 public interface IForegroundAppProvider { TargetApp GetCurrent(); }

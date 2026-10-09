@@ -39,16 +39,19 @@ public partial class App
             SaveWindowSnapshot(statusWindow, Path.Combine(dataDirectory, "welcome.png")); statusWindow.Hide();
             await localStore!.SaveCorrectionAsync(new("cube cuddle", "kubectl"));
             await RefreshCorrectionsAsync();
-            var corrected = await personalCleaner.ProcessAsync("use cube cuddle", new("diagnostic", "", 0), default);
+            var corrected = (await personalCleaner.ProcessAsync("use cube cuddle", new("diagnostic", "", 0), default)).Text;
             if (corrected != "Use kubectl.") throw new InvalidOperationException("Saved dictionary correction not applied.");
-            await localStore.AddHistoryAsync(new(DateTimeOffset.UtcNow, "diagnostic", "use cube cuddle", corrected, 1000, 50, 1));
+            var applied = (await personalCleaner.ProcessAsync("use cube cuddle", new("diagnostic", "", 0), default)).Corrections;
+            if (applied.Count != 1 || applied[0].Replacement != "kubectl") throw new InvalidOperationException("Applied correction not reported.");
+            await localStore.AddHistoryAsync(new(DateTimeOffset.UtcNow, "diagnostic", "use cube cuddle", corrected, 1000, 50, 1, applied));
+            await localStore.SaveCorrectionAsync(new("sequel", "SQL", Enabled: false));
             var library = new LibraryWindow(localStore, RefreshCorrectionsAsync, _ => Task.CompletedTask, false);
             library.Show(); await Task.Delay(300);
             SaveWindowSnapshot(library, Path.Combine(dataDirectory, "history.png")); library.Close();
             library = new LibraryWindow(localStore, RefreshCorrectionsAsync, _ => Task.CompletedTask, true);
             library.Show(); await Task.Delay(300);
             SaveWindowSnapshot(library, Path.Combine(dataDirectory, "dictionary.png")); library.Close();
-            await localStore.DeleteCorrectionAsync("cube cuddle"); await localStore.DeleteHistoryAsync(); await RefreshCorrectionsAsync();
+            await localStore.DeleteCorrectionAsync("cube cuddle"); await localStore.DeleteCorrectionAsync("sequel"); await localStore.DeleteHistoryAsync(); await RefreshCorrectionsAsync();
             Log.Information("Settings diagnostic passed: hotkey changed to F9, microphone switched to {Device}, capture reopened, JSON reloaded and settings rendered.", selected);
         }
         finally { localStore = productionStore; await RefreshCorrectionsAsync(); await ApplySettingsAsync(previous); ready = false; }

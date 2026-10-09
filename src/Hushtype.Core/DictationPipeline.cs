@@ -53,12 +53,14 @@ public sealed class DictationPipeline(IAudioRecorder recorder, ITranscriber tran
             var sttMs = stage.Elapsed.TotalMilliseconds;
             if (string.IsNullOrWhiteSpace(raw)) return;
             stage.Restart();
-            var text = await cleaner.ProcessAsync(raw, target!, ct);
+            var cleaned = await cleaner.ProcessAsync(raw, target!, ct);
+            var text = cleaned.Text;
             var cleanupMs = stage.Elapsed.TotalMilliseconds;
             if (string.IsNullOrWhiteSpace(text)) return;
             ct.ThrowIfCancellationRequested();
             SetState(DictationState.Inserting);
-            TranscriptReady?.Invoke(this, new(DateTimeOffset.UtcNow, target!.ProcessName, raw, text, samples.Length / 16.0, sttMs, cleanupMs));
+            TranscriptReady?.Invoke(this, new(DateTimeOffset.UtcNow, target!.ProcessName, raw, text, samples.Length / 16.0, sttMs, cleanupMs,
+                cleaned.Corrections.Count == 0 ? null : cleaned.Corrections));
             stage.Restart();
             await inserter.InsertAsync(text, target!, ct);
             Completed?.Invoke(this, new(samples.Length / 16.0, sttMs, cleanupMs,
