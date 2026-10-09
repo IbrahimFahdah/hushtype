@@ -65,6 +65,32 @@ Check(pipeline.State == DictationState.Idle && fake.Calls == 0, "Disable cancels
 fake = new Fakes(); pipeline = new(fake, fake, fake, fake, fake) { MinimumHold = TimeSpan.Zero, PostRoll = TimeSpan.Zero };
 pipeline.Begin(); end = pipeline.EndAsync(default); fake.Result.SetResult(" "); await end;
 Check(fake.Inserted is null && pipeline.State == DictationState.Idle, "Empty transcript not pasted");
+fake = new Fakes { Samples = new float[32000] }; pipeline = new(fake, fake, fake, fake, fake) { MinimumHold = TimeSpan.Zero, PostRoll = TimeSpan.Zero };
+var heard = new List<NothingHeardReason>(); pipeline.NothingHeard += (_, reason) => heard.Add(reason);
+pipeline.Begin(); end = pipeline.EndAsync(default); fake.Result.SetResult(""); await end;
+Check(heard.SequenceEqual([NothingHeardReason.MicrophoneBlocked]) && fake.Inserted is null, "Digital silence reported as a blocked microphone");
+
+// Blocked microphone: 1.5 s of exact zeros; a real noise floor never qualifies.
+var noisy = new float[48000]; var random = new Random(1); for (var i = 0; i < noisy.Length; i++) noisy[i] = (float)(random.NextDouble() - 0.5) * 0.0002f;
+Check(AudioSignal.Diagnose(new float[24000], TimeSpan.FromSeconds(2)) == NothingHeardReason.MicrophoneBlocked, "1.5 s of zeros is blocked");
+Check(AudioSignal.Diagnose(new float[23999], TimeSpan.FromSeconds(2)) != NothingHeardReason.MicrophoneBlocked, "Shorter zero run is not blocked");
+Check(AudioSignal.Diagnose(noisy, TimeSpan.FromSeconds(3)) == NothingHeardReason.TooQuiet, "Faint noise over a long hold is too quiet");
+Check(AudioSignal.Diagnose(noisy, TimeSpan.FromMilliseconds(400)) == NothingHeardReason.Unknown, "Short taps are not reported");
+var loud = (float[])noisy.Clone(); Array.Fill(loud, 0.2f, 1000, 8000);
+Check(AudioSignal.Diagnose(loud, TimeSpan.FromSeconds(3)) == NothingHeardReason.Unknown, "Loud audio is not reported as quiet");
+// Adaptive silence gate: a quiet but clean microphone still passes; the gate never exceeds 0.006.
+var quiet = (float[])noisy.Clone(); for (var i = 16000; i < 24000; i++) quiet[i] = MathF.Sin(i * 0.05f) * 0.004f;
+Check(SilenceTrimmer.Trim(quiet).Length > 0, "Quiet speech over a clean floor is kept");
+Check(SilenceTrimmer.Trim(quiet, 0.006f).Length == 0, "The old fixed gate would have dropped it");
+Check(SilenceTrimmer.Threshold(Enumerable.Repeat(0.05f, 16000).ToArray()) == 0.006f && SilenceTrimmer.Threshold(new float[16000]) == 0.0015f, "Gate clamped to 0.0015-0.006");
+
+// Typing plan: ~40-unit chunks, surrogate pairs never split, newlines become Enter.
+Check(TypingPlan.ShouldType(new string('a', 200)) && !TypingPlan.ShouldType(new string('a', 201)) && !TypingPlan.ShouldType("one\ntwo"), "Type short single-line text only");
+var chunks = TypingPlan.Split(new string('a', 39) + "😀" + "b");
+Check(chunks.Count == 2 && chunks[0].Length == 41 && chunks[0].EndsWith("😀") && chunks[1] == "b", "Surrogate pair kept together");
+Check(TypingPlan.Split(new string('x', 100)).Select(x => x.Length).SequenceEqual([40, 40, 20]), "Chunks of 40");
+Check(TypingPlan.Split("one\r\ntwo\nthree\r").SequenceEqual(["one", TypingPlan.Enter, "two", TypingPlan.Enter, "three", TypingPlan.Enter]), "Newlines become Enter");
+Check(string.Concat(TypingPlan.Split("héllo wörld 😀 ok")) == "héllo wörld 😀 ok", "Chunks rebuild the text");
 fake = new Fakes(); pipeline = new(fake, fake, fake, fake, fake) { MinimumHold = TimeSpan.Zero, PostRoll = TimeSpan.FromMilliseconds(50) };
 pipeline.Begin(); end = pipeline.EndAsync(default);
 Check(fake.Stops == 0 && pipeline.State == DictationState.Transcribing, "Post-roll keeps capturing after release");
@@ -85,7 +111,8 @@ sealed class Fakes : IAudioRecorder, ITranscriber, ITextPostProcessor, ITextInse
     public TaskCompletionSource<string> Result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public event EventHandler<float>? LevelChanged { add { } remove { } }
     public void Start() => Starts++;
-    public float[] Stop() { Stops++; return new float[16000]; }
+    public float[] Samples = new float[16000];
+    public float[] Stop() { Stops++; return Samples; }
     public void Dispose() { }
     public Task<string> TranscribeAsync(float[] samples, TranscribeOptions options, CancellationToken ct) { Calls++; return Result.Task.WaitAsync(ct); }
     public Task<CleanedText> ProcessAsync(string raw, TargetApp context, CancellationToken ct) => Task.FromResult(new CleanedText("Testing.", []));

@@ -79,7 +79,7 @@ public partial class App
             if (next.LaunchAtStartup != previous.LaunchAtStartup)
                 StartupRegistration.Set(next.LaunchAtStartup, Environment.ProcessPath!, customDataDirectory ? dataDirectory : null);
             await settingsStore!.SaveAsync(next);
-            settings = next; cues.Enabled = next.Sounds; sounds!.IsChecked = next.Sounds; personalCleaner.UseRules = next.Cleanup;
+            settings = next; cues.Enabled = next.Sounds; inserter!.TypeShortText = next.InsertMode == "type"; sounds!.IsChecked = next.Sounds; personalCleaner.UseRules = next.Cleanup;
             statusWindow!.SetHotkey(AppSettings.Hotkeys[next.Hotkey]);
             tray!.ToolTipText = "Hushtype — hold " + AppSettings.Hotkeys[next.Hotkey] + " to speak";
             if (!ready && speech?.Runtime == "cpu") { ready = true; deviceTimer?.Start(); }

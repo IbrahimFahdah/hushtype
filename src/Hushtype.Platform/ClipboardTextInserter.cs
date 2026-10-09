@@ -13,6 +13,8 @@ public sealed class ClipboardTextInserter(Dispatcher dispatcher) : ITextInserter
     private const int ClipboardBusy = unchecked((int)0x800401D0); // CLIPBRD_E_CANT_OPEN
     private const string CopiedInstead = " The text was copied to the clipboard instead.";
     public event EventHandler<string>? Warning;
+    // Typing leaves the clipboard untouched and helps apps that block or mishandle paste.
+    public bool TypeShortText { get; set; }
     public async Task InsertAsync(string text, TargetApp target, CancellationToken ct)
     {
         // WPF dispatcher is STA and stays alive through retries and restoration.
@@ -30,6 +32,7 @@ public sealed class ClipboardTextInserter(Dispatcher dispatcher) : ITextInserter
             for (var i = 0; ModifiersDown() && i < 25; i++) await Task.Delay(20, ct);
             if (ModifiersDown()) throw new PasteRefusedException("Release Ctrl, Alt, Shift and Windows keys before dictation is pasted.");
             ct.ThrowIfCancellationRequested();
+            if (TypeShortText && TypingPlan.ShouldType(text)) { await TypeAsync(text, target, ct); return; }
             // Restoring the clipboard is best effort; never let it block the paste.
             try { await RetryAsync(() => saved = Snapshot(), ct); }
             catch (ExternalException)
@@ -113,6 +116,20 @@ public sealed class ClipboardTextInserter(Dispatcher dispatcher) : ITextInserter
             { await Task.Delay(20, ct); }
         }
     }
+    private static async Task TypeAsync(string text, TargetApp target, CancellationToken ct)
+    {
+        foreach (var part in TypingPlan.Split(text))
+        {
+            ct.ThrowIfCancellationRequested();
+            ForegroundAppProvider.EnsureCanInsert(target);
+            var inputs = part == TypingPlan.Enter ? [Key(0x0D, false), Key(0x0D, true)] : part.SelectMany(c => new[] { Unicode(c, false), Unicode(c, true) }).ToArray();
+            if (NativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<NativeMethods.Input>()) != inputs.Length)
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Windows could not type the dictated text.");
+            await Task.Delay(10, ct);
+        }
+    }
     private static bool ModifiersDown() => new[] { 0x10, 0x11, 0x12, 0x5B, 0x5C }.Any(key => (NativeMethods.GetAsyncKeyState(key) & 0x8000) != 0);
-    private static NativeMethods.Input Key(ushort key, bool up) => new() { Type = 1, Data = new() { Keyboard = new() { Key = key, Flags = up ? 2u : 0u } } };
+    private static NativeMethods.Input Key(ushort key, bool up) => new() { Type = 1, Data = new() { Keyboard = new() { Key = key, Flags = up ? 2u : 0u, Extra = InputTags.Hushtype } } };
+    // KEYEVENTF_UNICODE: the character travels in the scan code, independent of keyboard layout.
+    private static NativeMethods.Input Unicode(char c, bool up) => new() { Type = 1, Data = new() { Keyboard = new() { Scan = c, Flags = 4u | (up ? 2u : 0u), Extra = InputTags.Hushtype } } };
 }

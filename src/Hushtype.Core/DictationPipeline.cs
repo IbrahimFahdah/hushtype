@@ -12,6 +12,7 @@ public sealed class DictationPipeline(IAudioRecorder recorder, ITranscriber tran
     public event EventHandler<DictationMetrics>? Completed;
     public event EventHandler? CaptureStopped;
     public event EventHandler<DictationRecord>? TranscriptReady;
+    public event EventHandler<NothingHeardReason>? NothingHeard;
     private long started;
     private TargetApp? target;
     public TimeSpan MinimumHold { get; init; } = TimeSpan.FromMilliseconds(150);
@@ -51,7 +52,7 @@ public sealed class DictationPipeline(IAudioRecorder recorder, ITranscriber tran
             var stage = Stopwatch.StartNew();
             var raw = await transcriber.TranscribeAsync(samples, new(), ct);
             var sttMs = stage.Elapsed.TotalMilliseconds;
-            if (string.IsNullOrWhiteSpace(raw)) return;
+            if (string.IsNullOrWhiteSpace(raw)) { NothingHeard?.Invoke(this, AudioSignal.Diagnose(samples, held)); return; }
             stage.Restart();
             var cleaned = await cleaner.ProcessAsync(raw, target!, ct);
             var text = cleaned.Text;

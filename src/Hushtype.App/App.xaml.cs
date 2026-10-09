@@ -40,13 +40,30 @@ public partial class App : Application
     private MenuItem? toggle;
     private bool ready, enabled = true, quitting, checkingDevice;
     private Mutex? instance;
+    private const string ShowSignal = "Local\\Hushtype.Show";
+    private EventWaitHandle? showSignal;
+    private ClipboardTextInserter? inserter;
+    private bool microphoneLinkPending;
     private int exitCode;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         instance = new Mutex(true, "Local\\Hushtype.Dictation", out var first);
-        if (!first) { Shutdown(); return; }
+        if (!first)
+        {
+            // Diagnostics must not report success when another instance blocked them.
+            if (e.Args.Any(arg => arg.StartsWith("--verify-") || arg is "--smoke-test" or "--probe-hardware")) { Shutdown(2); return; }
+            try { if (EventWaitHandle.TryOpenExisting(ShowSignal, out var signal)) using (signal) signal.Set(); } catch (Exception) { }
+            Shutdown(); return;
+        }
+        showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSignal);
+        ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => Dispatcher.BeginInvoke(() =>
+        {
+            if (quitting || statusWindow is null) return;
+            statusWindow.Show(); statusWindow.Activate();
+            Notify("Hushtype is already running in the tray.");
+        }), null, Timeout.Infinite, executeOnlyOnce: false);
         try
         {
             var index = Array.IndexOf(e.Args, "--data-dir");
@@ -76,7 +93,8 @@ public partial class App : Application
             ModelCatalog.Get(precision);
             var threadsIndex = Array.IndexOf(e.Args, "--speech-threads");
             if (threadsIndex >= 0 && (threadsIndex + 1 >= e.Args.Length || e.Args[threadsIndex + 1].StartsWith("--"))) throw new ArgumentException("--speech-threads needs a number from 1 to 20.");
-            var threads = threadsIndex >= 0 ? int.Parse(e.Args[threadsIndex + 1]) : settings.Threads;
+            var threads = settings.Threads;
+            if (threadsIndex >= 0 && !int.TryParse(e.Args[threadsIndex + 1], out threads)) throw new ArgumentException("--speech-threads needs a number from 1 to 20.");
             if (threads is < 1 or > 20) throw new ArgumentException("--speech-threads must be between 1 and 20.");
             builder.Services.AddSingleton(new SpeechConfiguration(precision, threads));
             builder.Services.AddSingleton<ParakeetTranscriber>();
@@ -102,7 +120,9 @@ public partial class App : Application
             recorder = host.Services.GetRequiredService<AudioRecorder>();
             speech = host.Services.GetRequiredService<ParakeetTranscriber>();
             speech.Diagnostic += (_, text) => Log.Information("{Diagnostic}", text);
-            host.Services.GetRequiredService<ClipboardTextInserter>().Warning += (_, text) => Notify(text);
+            inserter = host.Services.GetRequiredService<ClipboardTextInserter>();
+            inserter.Warning += (_, text) => Notify(text);
+            inserter.TypeShortText = settings.InsertMode == "type";
             statusWindow = new StatusWindow();
             statusWindow.SetHotkey(AppSettings.Hotkeys[settings.Hotkey]);
             statusWindow.ReadyDismissRequested += async (_, _) =>
@@ -125,6 +145,17 @@ public partial class App : Application
                     case DictationState.Inserting: overlay.Inserting(); break;
                     case DictationState.Idle: overlay.EndActivity(); break;
                 }
+            };
+            pipeline.NothingHeard += (_, reason) =>
+            {
+                if (quitting || !enabled) return;
+                if (reason == NothingHeardReason.MicrophoneBlocked)
+                {
+                    Log.Warning("Microphone delivered digital silence; access may be blocked");
+                    microphoneLinkPending = true;
+                    Notify("The microphone sent only silence. Windows may be blocking microphone access for desktop apps. Click here to open microphone privacy settings.");
+                }
+                else if (reason == NothingHeardReason.TooQuiet) Notify("Nothing was transcribed. If you spoke, " + QuietCause() + ".");
             };
             pipeline.CaptureStopped += (_, _) => { if (!quitting && enabled) cues.Play(start: false); };
             pipeline.Completed += (_, _) => { if (!quitting && enabled) overlay.Done(); };
@@ -153,6 +184,7 @@ public partial class App : Application
                 if (soundFailure is not null) throw new InvalidOperationException("Sound playback diagnostic failed.", soundFailure);
                 Log.Information("Sound diagnostic passed; enabled={Enabled}.", cues.Enabled);
                 Log.Information("Overlay diagnostic passed: native styles, placement, state transitions, keyboard focus and rendered snapshots.");
+                Log.Information("Insertion diagnostic passed: {Result}", await InsertionDiagnostics.RunAsync(inserter!));
                 await QuitAsync();
                 return;
             }
@@ -177,8 +209,12 @@ public partial class App : Application
             }
             if (e.Args.Contains("--probe-hardware"))
             {
-                await Task.Run(recorder.Open);
+                await Task.Run(() => recorder.SelectMicrophone(settings.Microphone));
                 Log.Information("Microphone opened successfully at 16 kHz mono PCM16.");
+                Log.Information("Microphone endpoint: {Endpoint}", AudioRecorder.DefaultEndpointState());
+                recorder.Start(); await Task.Delay(2000); var probe = recorder.Stop();
+                Log.Information("Microphone probe: samples={Samples} longest_zero_run={ZeroRun} peak_frame_rms={Peak:F5} diagnosis_if_empty={Diagnosis}",
+                    probe.Length, AudioSignal.LongestZeroRun(probe), probe.Length == 0 ? 0 : AudioSignal.FrameRms(probe).Max(), AudioSignal.Diagnose(probe, TimeSpan.FromSeconds(2)));
                 Log.Information("{Probe}", await Task.Run(ParakeetTranscriber.ProbeRuntime));
                 await QuitAsync();
                 return;
@@ -245,6 +281,13 @@ public partial class App : Application
         menu.Items.Add(quit);
         trayIcon = Brand.TrayIcon();
         tray = new TaskbarIcon { ToolTipText = "Hushtype — starting", Icon = trayIcon, ContextMenu = menu };
+        tray.TrayBalloonTipClicked += (_, _) =>
+        {
+            if (!microphoneLinkPending) return;
+            microphoneLinkPending = false;
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:privacy-microphone") { UseShellExecute = true }); }
+            catch (Exception ex) { Log.Warning(ex, "Could not open microphone privacy settings"); }
+        };
         tray.ForceCreate(false);
     }
     private async Task InitializeAsync()
@@ -269,6 +312,19 @@ public partial class App : Application
         try { await pipeline!.EndAsync(utteranceCancellation?.Token ?? lifetime.Token); }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested || utteranceCancellation?.IsCancellationRequested == true) { }
         catch (Exception ex) { Report(ex); }
+    }
+    private string QuietCause()
+    {
+        const string generic = "your microphone level may be too low; raise the input volume in Windows sound settings";
+        if (settings.Microphone != "default") return generic;
+        try
+        {
+            var state = AudioRecorder.DefaultEndpointState();
+            if (state.Muted) return $"{state.Name} is muted in Windows sound settings";
+            if (state.Level < 0.25f) return $"the Windows input level for {state.Name} is only {state.Level:P0}; raise it in Windows sound settings";
+        }
+        catch (Exception ex) { Log.Warning(ex, "Could not read microphone level"); }
+        return generic;
     }
     private void Report(Exception ex)
     {
@@ -300,6 +356,7 @@ public partial class App : Application
         overlay?.Close();
         if (host is not null) { await host.StopAsync(); host.Dispose(); }
         Log.CloseAndFlush();
+        showSignal?.Dispose();
         instance?.Dispose();
         Shutdown(exitCode);
     }

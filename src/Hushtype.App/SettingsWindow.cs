@@ -23,6 +23,9 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(altGr);
         var microphone = new ComboBox { ItemsSource = microphones, DisplayMemberPath = "Name", SelectedValuePath = "Id", SelectedValue = current.Microphone };
         WindowTheme.Field(panel, "Microphone", microphone);
+        var insertModes = new Dictionary<string, string> { ["paste"] = "Paste (default)", ["type"] = "Type short text, paste longer text" };
+        var insert = new ComboBox { ItemsSource = insertModes, DisplayMemberPath = "Value", SelectedValuePath = "Key", SelectedValue = current.InsertMode };
+        WindowTheme.Field(panel, "Insert text by", insert);
         var precision = new ComboBox { ItemsSource = new[] { "int8", "fp32" }, SelectedItem = current.Precision };
         WindowTheme.Field(panel, "Speech model precision (applies next launch)", precision);
         var threads = new TextBox { Text = current.Threads.ToString() };
@@ -34,7 +37,7 @@ public sealed class SettingsWindow : Window
         var startup = Choice("Launch when I sign in to Windows", current.LaunchAtStartup);
         var updates = Choice("Check for app updates automatically", current.AutomaticUpdates); updates.IsEnabled = updateConfigured;
         if (!updateConfigured) panel.Children.Add(WindowTheme.Text("App update hosting is not configured for this build."));
-        panel.Children.Add(WindowTheme.Text("Hotkey, microphone, cleanup and sound changes apply immediately. Dictionary corrections stay active when cleanup is off."));
+        panel.Children.Add(WindowTheme.Text("Typing sends up to 200 characters of single-line text as keystrokes and leaves the clipboard untouched; longer text is pasted. Hotkey, microphone, insert mode, cleanup and sound changes apply immediately. Dictionary corrections stay active when cleanup is off."));
         var result = WindowTheme.Text(""); panel.Children.Add(result);
         var save = new Button { Content = "Save settings", HorizontalAlignment = HorizontalAlignment.Left };
         save.Click += async (_, _) =>
@@ -46,7 +49,7 @@ public sealed class SettingsWindow : Window
                 if (microphone.SelectedValue is not string mic) throw new ArgumentException("Select an available microphone.");
                 var next = current with { Hotkey = (int)hotkey.SelectedValue, Microphone = mic, Precision = (string)precision.SelectedItem,
                     Threads = count, Sounds = sounds.IsChecked == true, Cleanup = cleanup.IsChecked == true, SaveHistory = history.IsChecked == true,
-                    LaunchAtStartup = startup.IsChecked == true, AutomaticUpdates = updateConfigured && updates.IsChecked == true };
+                    LaunchAtStartup = startup.IsChecked == true, InsertMode = (string)insert.SelectedValue, AutomaticUpdates = updateConfigured && updates.IsChecked == true };
                 next.Validate(); await apply(next); current = next;
                 result.Text = "Saved. Hotkey and microphone are ready now. Model changes apply next launch.";
             }

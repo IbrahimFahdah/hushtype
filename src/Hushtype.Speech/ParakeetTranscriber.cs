@@ -66,7 +66,8 @@ public sealed class ParakeetTranscriber(ModelManager models, SpeechConfiguration
         ct.ThrowIfCancellationRequested();
         if (options.Language is not ("en" or "auto")) throw new NotSupportedException("This model supports English dictation only.");
         if (options.Dictionary is { Length: > 0 }) throw new NotSupportedException("Parakeet TDT does not support Whisper-style dictionary prompts. Dictionary corrections belong in post-processing.");
-        var trimmed = SilenceTrimmer.Trim(samples);
+        var threshold = SilenceTrimmer.Threshold(samples);
+        var trimmed = SilenceTrimmer.Trim(samples, threshold);
         if (trimmed.Length == 0) return "";
         await gate.WaitAsync(ct);
         try
@@ -81,7 +82,7 @@ public sealed class ParakeetTranscriber(ModelManager models, SpeechConfiguration
                 ct.ThrowIfCancellationRequested();
                 var end = Math.Min(start + window, trimmed.Length);
                 var chunk = trimmed[start..end];
-                if (SilenceTrimmer.Trim(chunk).Length > 0)
+                if (SilenceTrimmer.Trim(chunk, threshold).Length > 0)
                 {
                     using var stream = recognizer.CreateStream();
                     stream.AcceptWaveform(16000, chunk);

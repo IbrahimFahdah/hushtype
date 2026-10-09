@@ -32,6 +32,18 @@ public sealed class AudioRecorder : IAudioRecorder
         try { Open(); }
         catch { SelectedMicrophone = previous; try { Open(); } catch { } throw; }
     }
+    public sealed record EndpointState(string Name, bool Muted, float Level)
+    {
+        public override string ToString() => $"name={Name}; muted={Muted}; level={Level:P0}";
+    }
+    // Name, mute and input level of the Windows default capture device; contains no audio.
+    public static EndpointState DefaultEndpointState()
+    {
+        using var devices = new MMDeviceEnumerator();
+        using var device = devices.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console);
+        var volume = device.AudioEndpointVolume;
+        return new(device.FriendlyName, volume.Mute, volume.MasterVolumeLevelScalar);
+    }
     public event EventHandler<float>? LevelChanged;
     public event EventHandler<string>? DeviceChanged;
     public const int MaximumSamples = 16000 * 300;

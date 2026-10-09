@@ -13,6 +13,8 @@ public sealed record AppSettings
     public bool LaunchAtStartup { get; init; }
     public bool OnboardingComplete { get; init; }
     public bool AutomaticUpdates { get; init; }
+    // "paste" always uses the clipboard; "type" types short single-line text and pastes the rest.
+    public string InsertMode { get; init; } = "paste";
     // Right Ctrl types no character on any layout; Right Alt is AltGr on many. Saved choices are kept.
     public const int DefaultHotkey = 0xA3;
     public static readonly IReadOnlyDictionary<int, string> Hotkeys = new Dictionary<int, string>
@@ -24,6 +26,7 @@ public sealed record AppSettings
         if (string.IsNullOrWhiteSpace(Microphone)) throw new ArgumentException("Choose a microphone.");
         if (Precision is not ("int8" or "fp32")) throw new ArgumentException("Choose INT8 or FP32.");
         if (Threads is < 1 or > 20) throw new ArgumentException("CPU threads must be between 1 and 20.");
+        if (InsertMode is not ("paste" or "type")) throw new ArgumentException("Choose paste or type.");
     }
 }
 
