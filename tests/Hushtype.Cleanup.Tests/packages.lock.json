@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "hushtype.cleanup": {
+        "type": "Project",
+        "dependencies": {
+          "Hushtype.Core": "[1.0.0, )"
+        }
+      },
+      "hushtype.core": {
+        "type": "Project"
+      }
+    }
+  }
+}

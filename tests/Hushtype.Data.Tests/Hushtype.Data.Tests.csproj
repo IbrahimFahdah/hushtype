@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/Hushtype.Data/Hushtype.Data.csproj"/><ProjectReference Include="../../src/Hushtype.Cleanup/Hushtype.Cleanup.csproj"/></ItemGroup>
+</Project>

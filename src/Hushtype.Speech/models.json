@@ -1,0 +1,69 @@
+{
+  "fp32": {
+    "name": "parakeet-tdt-0.6b-v2-fp32",
+    "precision": "fp32",
+    "repository": "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2",
+    "revision": "86891485dd8ad7cb28cb1aade45c3e23d0197c30",
+    "files": [
+      {
+        "name": "decoder.onnx",
+        "size": 28883663,
+        "sha256": "0140d12782ccf550a9709f03a52c2782b3c54d045f47ce14af39c713ab42de7f"
+      },
+      {
+        "name": "encoder.onnx",
+        "size": 41766257,
+        "sha256": "7ce8d2b3f45fcd3b553d3b7a188436db7748c271081cc004f28bf76f3df01893"
+      },
+      {
+        "name": "encoder.weights",
+        "size": 2435420160,
+        "sha256": "90cd4bb6c9b60496d49be9bec3a844f4e9bf22c62a45ea93f391cc00f9a47cfe"
+      },
+      {
+        "name": "joiner.onnx",
+        "size": 6907576,
+        "sha256": "a9e57e488cd1016cbefd51f60712896af6590e3f61ff466a540e085bbd6af59e"
+      },
+      {
+        "name": "tokens.txt",
+        "size": 9384,
+        "sha256": "ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d"
+      }
+    ],
+    "encoder": "encoder.onnx",
+    "decoder": "decoder.onnx",
+    "joiner": "joiner.onnx"
+  },
+  "int8": {
+    "name": "parakeet-tdt-0.6b-v2-int8",
+    "precision": "int8",
+    "repository": "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8",
+    "revision": "1ab9323565ddb038682214b292f588070a538ce2",
+    "files": [
+      {
+        "name": "decoder.int8.onnx",
+        "size": 7257753,
+        "sha256": "b6bb64963457237b900e496ee9994b59294526439fbcc1fecf705b31a15c6b4e"
+      },
+      {
+        "name": "encoder.int8.onnx",
+        "size": 652184296,
+        "sha256": "a32b12d17bbbc309d0686fbbcc2987b5e9b8333a7da83fa6b089f0a2acd651ab"
+      },
+      {
+        "name": "joiner.int8.onnx",
+        "size": 1739080,
+        "sha256": "7946164367946e7f9f29a122407c3252b680dbae9a51343eb2488d057c3c43d2"
+      },
+      {
+        "name": "tokens.txt",
+        "size": 9384,
+        "sha256": "ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d"
+      }
+    ],
+    "encoder": "encoder.int8.onnx",
+    "decoder": "decoder.int8.onnx",
+    "joiner": "joiner.int8.onnx"
+  }
+}

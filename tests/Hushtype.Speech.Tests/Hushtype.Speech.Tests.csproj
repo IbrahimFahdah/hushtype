@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><RuntimeIdentifier>win-x64</RuntimeIdentifier></PropertyGroup><ItemGroup><ProjectReference Include="../../src/Hushtype.Speech/Hushtype.Speech.csproj"/><ProjectReference Include="../../src/Hushtype.Audio/Hushtype.Audio.csproj"/></ItemGroup></Project>
