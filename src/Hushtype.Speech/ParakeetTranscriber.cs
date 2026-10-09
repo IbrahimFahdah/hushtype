@@ -74,13 +74,11 @@ public sealed class ParakeetTranscriber(ModelManager models, SpeechConfiguration
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             if (recognizer is null) throw new InvalidOperationException("Speech recognition is still loading.");
-            const int window = 20 * 16000;
-            const int overlap = 16000;
             var text = "";
-            for (var start = 0; start < trimmed.Length; start += window - overlap)
+            var windows = configuration.SplitAtPauses ? DecodeWindows.AtPauses(trimmed) : DecodeWindows.Fixed(trimmed.Length);
+            foreach (var (start, end) in windows)
             {
                 ct.ThrowIfCancellationRequested();
-                var end = Math.Min(start + window, trimmed.Length);
                 var chunk = trimmed[start..end];
                 if (SilenceTrimmer.Trim(chunk, threshold).Length > 0)
                 {
@@ -92,7 +90,6 @@ public sealed class ParakeetTranscriber(ModelManager models, SpeechConfiguration
                     ct.ThrowIfCancellationRequested();
                     text = TranscriptMerger.Append(text, stream.Result.Text);
                 }
-                if (end == trimmed.Length) break;
             }
             return text.Trim();
         }

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Hushtype.Speech;
 
-public sealed record SpeechConfiguration(string Precision = "int8", int Threads = 4);
+public sealed record SpeechConfiguration(string Precision = "int8", int Threads = 4, bool SplitAtPauses = true);
 public sealed record ModelFile(string Name, long Size, string Sha256);
 public sealed record SpeechModelSpec(string Name, string Precision, string Repository, string Revision, ModelFile[] Files, string Encoder, string Decoder, string Joiner);
 public sealed record ModelProgress(string Message, double? Fraction = null);

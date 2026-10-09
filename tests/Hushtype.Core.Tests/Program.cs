@@ -27,6 +27,17 @@ Check(TranscriptMerger.Append("one test", "test test again") == "one test test a
 Check(TranscriptMerger.Append("don't stop", "stop now") == "don't stop now", "Apostrophe preserved");
 Check(TranscriptMerger.Append("one two", "one two") == "one two", "Duplicate window");
 
+// Decode windows: fixed 20 s with 1 s overlap, or cut at the quietest frame before each boundary.
+var fixedWindows = DecodeWindows.Fixed(66 * 16000);
+Check(fixedWindows.Count == 4 && fixedWindows[0] == (0, 320000) && fixedWindows[1].Start == 304000 && fixedWindows[^1].End == 66 * 16000, "Fixed windows cover the audio with overlap");
+var speech = new float[70 * 16000]; for (var i = 0; i < speech.Length; i++) speech[i] = MathF.Sin(i * 0.1f) * 0.3f;
+Array.Clear(speech, 18 * 16000, 3200); // a 200 ms pause 2 s before the first boundary
+var paused = DecodeWindows.AtPauses(speech);
+Check(paused[0].End > 18 * 16000 && paused[0].End < 18 * 16000 + 3200 + 4000 + 320 && paused[1].Start < paused[0].End, "First cut lands in the pause and keeps a margin");
+Check(paused.Zip(paused.Skip(1)).All(p => p.Second.Start < p.First.End && p.Second.Start > p.First.Start) && paused[0].Start == 0 && paused[^1].End == speech.Length, "Pause windows are contiguous, overlapping and complete");
+Check(paused.All(w => w.End - w.Start <= DecodeWindows.Window), "Pause windows never exceed 20 s");
+Check(DecodeWindows.AtPauses(new float[5 * 16000]).SequenceEqual([(0, 5 * 16000)]), "Short audio is one window");
+
 var fake = new Fakes();
 var pipeline = new DictationPipeline(fake, fake, fake, fake, fake) { MinimumHold = TimeSpan.Zero, PostRoll = TimeSpan.Zero };
 var states = new List<DictationState>();

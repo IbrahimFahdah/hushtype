@@ -37,6 +37,45 @@ if (args.Length > 0 && args[0] == "--benchmark")
     return;
 }
 
+if (args.Length > 0 && args[0] == "--boundary-benchmark")
+{
+    // --boundary-benchmark file.wav reference.txt data-directory: fixed windows vs cuts at pauses.
+    if (args.Length != 4) throw new ArgumentException("Usage: --boundary-benchmark file.wav reference.txt data-directory");
+    var directory = Path.GetFullPath(args[3]);
+    using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+    var samples = WaveFileSamples.Read(args[1]);
+    var reference = Words(await File.ReadAllTextAsync(args[2]));
+    foreach (var pauses in new[] { false, true })
+    {
+        using var transcriber = new ParakeetTranscriber(new ModelManager(http, Path.Combine(directory, "models")), new SpeechConfiguration("int8", 4, pauses));
+        await transcriber.InitializeAsync(new Progress<ModelProgress>(), default);
+        var text = await transcriber.TranscribeAsync(samples, new("en"), default);
+        var (inserted, deleted, substituted) = Align(reference, Words(text));
+        Console.WriteLine(JsonSerializer.Serialize(new { split = pauses ? "pauses" : "fixed", file = Path.GetFileName(args[1]), duration_s = samples.Length / 16000.0, reference_words = reference.Length, inserted, deleted, substituted, text }));
+    }
+    return;
+}
+static string[] Words(string text) => text.ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+    .Select(w => new string(w.Where(c => char.IsLetterOrDigit(c) || c == '\'').ToArray())).Where(w => w.Length > 0).ToArray();
+// Word-level edit distance with backtrace: inserted ≈ duplicated words, deleted ≈ missing words.
+static (int Inserted, int Deleted, int Substituted) Align(string[] reference, string[] hypothesis)
+{
+    var cost = new int[reference.Length + 1, hypothesis.Length + 1];
+    for (var i = 0; i <= reference.Length; i++) cost[i, 0] = i;
+    for (var j = 0; j <= hypothesis.Length; j++) cost[0, j] = j;
+    for (var i = 1; i <= reference.Length; i++)
+        for (var j = 1; j <= hypothesis.Length; j++)
+            cost[i, j] = Math.Min(Math.Min(cost[i - 1, j] + 1, cost[i, j - 1] + 1), cost[i - 1, j - 1] + (reference[i - 1] == hypothesis[j - 1] ? 0 : 1));
+    int a = reference.Length, b = hypothesis.Length, inserted = 0, deleted = 0, substituted = 0;
+    while (a > 0 || b > 0)
+    {
+        if (a > 0 && b > 0 && cost[a, b] == cost[a - 1, b - 1] + (reference[a - 1] == hypothesis[b - 1] ? 0 : 1)) { if (reference[a - 1] != hypothesis[b - 1]) substituted++; a--; b--; }
+        else if (b > 0 && cost[a, b] == cost[a, b - 1] + 1) { inserted++; b--; }
+        else { deleted++; a--; }
+    }
+    return (inserted, deleted, substituted);
+}
+
 var checks = 0;
 void Check(bool condition, string name) { if (!condition) throw new Exception(name); checks++; }
 var testFolder = Path.Combine(Path.GetTempPath(), "hushtype-model-tests-" + Guid.NewGuid().ToString("N"));
