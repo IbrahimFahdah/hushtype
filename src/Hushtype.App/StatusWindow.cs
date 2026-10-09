@@ -18,7 +18,7 @@ public sealed class StatusWindow : Window
         panel.Children.Add(new Image { Source = Brand.Icon, Width = 58, Height = 58, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0,0,0,20) });
         panel.Children.Add(WindowTheme.Text("Your voice, right where you work.", 25));
         panel.Children.Add(WindowTheme.Text("English dictation that runs on your computer. After the speech model is downloaded, no internet connection is needed."));
-        tutorial = WindowTheme.Text("1. Click a text field.\n2. Hold Right Alt and speak.\n3. Release to paste.", 16); panel.Children.Add(tutorial);
+        tutorial = WindowTheme.Text("1. Click a text field.\n2. Hold Right Ctrl and speak.\n3. Release to paste.", 16); panel.Children.Add(tutorial);
         status = WindowTheme.Text("Preparing Hushtype…"); status.MinHeight = 48; panel.Children.Add(status);
         progress = new ProgressBar { Height = 5, Minimum = 0, Maximum = 1, IsIndeterminate = true, Margin = new Thickness(0,0,0,20) }; panel.Children.Add(progress);
         var buttons = new WrapPanel(); panel.Children.Add(buttons);

@@ -25,7 +25,7 @@ The packaged app includes .NET. Setup can install the Visual C++ runtime prerequ
 
 1. Wait for setup to open the microphone and prepare the model.
 2. Choose **Start dictating**.
-3. Click a text field, hold **Right Alt**, speak English and release.
+3. Click a text field, hold **Right Ctrl**, speak English and release.
 
 Closing the welcome window keeps the app running in the tray. Use **Quit** to exit. If setup fails, use **Retry setup**, **Microphone access**, or choose another microphone in Settings.
 
@@ -33,7 +33,7 @@ Closing the welcome window keeps the app running in the tray. Use **Quit** to ex
 
 Tray → **Settings** provides:
 
-- Right Alt, Right Ctrl, F8, F9 or F10 as the hold-to-talk key.
+- Right Ctrl (default), Right Alt, F8, F9 or F10 as the hold-to-talk key.
 - Windows default or a specific microphone. Hotkey and microphone changes apply while idle without restarting.
 - INT8/FP32 and CPU threads. These model options apply on the next launch.
 - Sounds, rule cleanup, history recording, launch at Windows sign-in and automatic updates when a release source is configured.
@@ -71,7 +71,7 @@ dotnet run --project tests/Hushtype.Speech.Tests -c Release
 dotnet run --project tests/Hushtype.Data.Tests -c Release
 ```
 
-These are executable assertion harnesses: **dotnet test does not run them**. Current total: 79 checks.
+These are executable assertion harnesses: **dotnet test does not run them**. Current total: 81 checks.
 
 Automatic-exit desktop diagnostics:
 
@@ -83,7 +83,7 @@ Automatic-exit desktop diagnostics:
 .\artifacts\Hushtype\Hushtype.App.exe --verify-speech path-to-speech.wav --data-dir .build/parakeet-verification
 ```
 
-The overlay diagnostic types only into its own editor and saves state snapshots. The settings diagnostic switches microphone/hotkey, restores previous settings, checks a dictionary correction in a separate diagnostic database and renders the settings/onboarding/history/dictionary windows. Use a dedicated test directory. Close any running Hushtype instance first because the app is single-instance.
+The overlay diagnostic types only into its own editor and saves state snapshots. The settings diagnostic switches microphone/hotkey, restores previous settings, checks a dictionary correction in a separate diagnostic database and renders the settings/onboarding/history/dictionary windows. The hotkey diagnostic injects tagged F9 and Right Ctrl presses: it blocks the UI thread for 2 s during a press, checks a swallowed key is not ended early, and checks the watchdog ends a press whose key-up was missed. Use a dedicated test directory. Close any running Hushtype instance first because the app is single-instance.
 
 See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for exact results and remaining manual coverage.
 
@@ -101,7 +101,8 @@ Update hosting, signing credentials, clean-machine installation and a real hoste
 
 ## Known limits
 
-- Right Alt is reserved while enabled, including on AltGr layouts. Other offered keys can be selected in Settings.
+- Right Alt, F8, F9 and F10 are reserved while enabled; on AltGr layouts choosing Right Alt blocks characters such as @, € and |. The default Right Ctrl is passed through to the active app.
+- If a key release is missed (lock screen, UAC prompt, focus moving to an administrator window), recording ends within about 250 ms instead of running to the five-minute cap.
 - Changing foreground windows or targeting an elevated app refuses the paste; the processed text is copied for recovery. Clipboard format restoration is best effort.
 - Long speech uses 20-second windows with one second of overlap. Differently recognized overlap can leave duplicates or vary punctuation.
 - RMS silence gating can reject very quiet speech. Personal accents and technical vocabulary still need live testing.

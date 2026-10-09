@@ -54,7 +54,7 @@ NuGet lock files pin dependencies. SQLite and Velopack are implemented; Ollama i
 ## 3. Pipeline
 
 ```
-Hold Right Alt ──► start capture (with ~300 ms pre-roll)
+Hold Right Ctrl ──► start capture (with ~300 ms pre-roll)
 Release        ──► stop capture
                ──► ITranscriber.TranscribeAsync(samples)     // 16 kHz mono float32; Parakeet v2, CPU
                ──► ITextPostProcessor.ProcessAsync(text, ctx) // optional rules → dictionary corrections
@@ -109,11 +109,12 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 ## 5. Implementation details and gotchas
 
 ### Hotkey (`Hushtype.Platform`)
-- Install the hook on the UI thread, which has a message loop. **Keep the callback tiny**: raise events onto a channel or dispatcher and return immediately. Windows silently removes slow hooks (registry `LowLevelHooksTimeout`).
-- Default key: **Right Alt** (`VK_RMENU`); Settings also offers Right Ctrl, F8, F9 and F10, applied without restarting. The Fn key isn't visible to Windows.
+- Install the hook on a **dedicated thread with its own message loop**, so UI work can never delay the callback past `LowLevelHooksTimeout` (Windows silently removes slow hooks). The callback stays tiny and marshals press/release to the dispatcher; the delegate is rooted for the hook's lifetime.
+- Default key for new settings: **Right Ctrl** (`VK_RCONTROL`), which types no character on any layout. Settings also offers Right Alt (with an AltGr warning), F8, F9 and F10, applied without restarting. Saved choices are kept. The Fn key isn't visible to Windows.
 - On some layouts Right Alt is AltGr, which also injects a fake `LCtrl` down. Ignore `LCtrl` events flagged `LLKHF_INJECTED`, or ones that arrive within a few ms of `RMENU`.
 - Ignore auto-repeat key-downs while the key is already held.
-- **Swallow** the hotkey's down and up (return `1`) so the active app doesn't see a stray Alt and open its menu bar.
+- **Swallow** Right Alt and F8–F10 (return `1`) so the active app doesn't open its menu bar or type AltGr characters. **Observe** Right Ctrl (pass it through) so the target app's modifier state stays truthful.
+- Stuck-key watchdog: while held, every 250 ms the hook thread ends the press as a normal release if an observed key is physically up (`GetAsyncKeyState`), the input desktop changed (lock screen, UAC), or an elevated window took focus. Swallowed keys never update `GetAsyncKeyState`, so they rely on the latter two checks.
 - Ignore presses shorter than about 150 ms, since they're accidental taps.
 - Optional later: a "hands-free" toggle where a double-tap latches recording on.
 
@@ -143,7 +144,7 @@ public interface IForegroundAppProvider { TargetApp GetCurrent(); }
 ### Insertion (`Hushtype.Platform`)
 1. Save the current clipboard, including non-text formats where possible (`IDataObject`).
 2. Set the clipboard text. Retry on `CLIPBRD_E_CANT_OPEN` up to 5 times, 20 ms apart. This must run on an STA thread.
-3. Send **Ctrl+V** via `SendInput`. Make sure no modifiers are still logically down first, since the user just released Right Alt.
+3. Send **Ctrl+V** via `SendInput`. Make sure no modifiers are still logically down first, since the user just released the hotkey.
 4. Wait about 150 ms, then restore the original clipboard.
 - **Known limitation:** you can't paste into elevated (admin) windows from a non-elevated app because of UIPI. Detect this case and show a toast instead of failing silently.
 - Optional fallback setting: "type characters" mode via `SendInput` with `KEYEVENTF_UNICODE`, for apps that block paste.
@@ -224,7 +225,7 @@ Work phase by phase and verify each implementation. The user authorized skipping
 - [ ] Elevated window shows a friendly toast
 - [ ] On battery and without CUDA: English Parakeet dictation still works on CPU
 - [ ] Rapid repeated presses don't deadlock or overlap pipelines
-- [ ] Holding Right Alt doesn't trigger menus or AltGr characters in the target app
+- [ ] Holding Right Alt doesn't trigger menus in the target app; holding Right Ctrl (default) has no side effects
 
 Unit tests: overlapping-window transcript merging, model integrity/cache/cancellation, the rule-based cleaner, the pipeline state machine (with fake interfaces), and ring-buffer pre-roll maths.
 
@@ -238,7 +239,7 @@ From the workspace root, reuse the downloaded and verified model:
 .\artifacts\Hushtype\Hushtype.App.exe --data-dir .\.build\parakeet-verification
 ```
 
-Wait for Ready, focus a text field, hold Right Alt to speak English, and release to paste. Timing logs for this command are in `.build/parakeet-verification/logs`. Use the tray menu → Quit to stop the app. Build commands and diagnostic options are in [README.md](README.md).
+Wait for Ready, focus a text field, hold Right Ctrl (or your chosen key) to speak English, and release to paste. Timing logs for this command are in `.build/parakeet-verification/logs`. Use the tray menu → Quit to stop the app. Build commands and diagnostic options are in [README.md](README.md).
 
 ---
 

@@ -13,6 +13,10 @@ try
     var legacy = Path.Combine(folder, "ui-preferences.json");
     await File.WriteAllTextAsync(legacy, "{\"Sounds\":false}");
     Check(!(await store.LoadAsync(legacy)).Sounds, "Migrate legacy sound toggle");
+    Check((await store.LoadAsync()).Hotkey == 0xA3, "New settings default to Right Ctrl");
+    await File.WriteAllTextAsync(settingsPath, "{\"Hotkey\":165}");
+    Check((await store.LoadAsync()).Hotkey == 0xA5, "Saved Right Alt choice is kept");
+    File.Delete(settingsPath);
     var settings = new AppSettings { Hotkey = 0x78, Sounds = false, SaveHistory = true, Threads = 8 };
     await store.SaveAsync(settings);
     Check(await new SettingsStore(settingsPath).LoadAsync() == settings, "Settings survive restart");

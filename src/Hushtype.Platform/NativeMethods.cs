@@ -23,6 +23,14 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool UnhookWindowsHookEx(nint hook);
     [DllImport("user32.dll")] internal static extern nint CallNextHookEx(nint hook, int code, nint wParam, nint lParam);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] internal static extern nint GetModuleHandle(string? name);
+    [StructLayout(LayoutKind.Sequential)] internal struct Msg { public nint Window; public uint Message; public nint WParam, LParam; public uint Time; public int X, Y, Private; }
+    [DllImport("user32.dll", SetLastError = true)] internal static extern int GetMessage(out Msg message, nint window, uint min, uint max);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool PostThreadMessage(uint thread, uint message, nint wParam, nint lParam);
+    [DllImport("kernel32.dll")] internal static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll", SetLastError = true)] internal static extern nuint SetTimer(nint window, nuint id, uint milliseconds, nint callback);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool KillTimer(nint window, nuint id);
+    [DllImport("user32.dll", SetLastError = true)] internal static extern nint OpenInputDesktop(uint flags, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint access);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool CloseDesktop(nint desktop);
     [DllImport("user32.dll")] internal static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] internal static extern uint GetWindowThreadProcessId(nint window, out uint process);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] internal static extern int GetWindowText(nint window, StringBuilder text, int maximum);

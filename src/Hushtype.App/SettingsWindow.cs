@@ -16,6 +16,11 @@ public sealed class SettingsWindow : Window
         panel.Children.Add(WindowTheme.Text(runtime + " · English only"));
         var hotkey = new ComboBox { ItemsSource = AppSettings.Hotkeys, DisplayMemberPath = "Value", SelectedValuePath = "Key", SelectedValue = current.Hotkey };
         WindowTheme.Field(panel, "Hold to dictate", hotkey);
+        var altGr = WindowTheme.Text("Right Alt is AltGr on German, Polish, UK, Nordic and many other layouts. Hushtype blocks it while running, so characters such as @, €, \\ and | can't be typed. Right Ctrl is recommended.");
+        altGr.Margin = new Thickness(0, -6, 0, 14);
+        void ShowAltGr() => altGr.Visibility = hotkey.SelectedValue is 0xA5 ? Visibility.Visible : Visibility.Collapsed;
+        hotkey.SelectionChanged += (_, _) => ShowAltGr(); ShowAltGr();
+        panel.Children.Add(altGr);
         var microphone = new ComboBox { ItemsSource = microphones, DisplayMemberPath = "Name", SelectedValuePath = "Id", SelectedValue = current.Microphone };
         WindowTheme.Field(panel, "Microphone", microphone);
         var precision = new ComboBox { ItemsSource = new[] { "int8", "fp32" }, SelectedItem = current.Precision };

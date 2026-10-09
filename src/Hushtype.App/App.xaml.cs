@@ -97,6 +97,7 @@ public partial class App : Application
             await host.StartAsync(lifetime.Token);
             hotkey = host.Services.GetRequiredService<IHotkeyService>();
             ((HotkeyService)hotkey).Configure(settings.Hotkey);
+            ((HotkeyService)hotkey).Released += (_, reason) => Log.Warning("Hotkey release missed ({Reason}); recording ended", reason);
             pipeline = host.Services.GetRequiredService<DictationPipeline>();
             recorder = host.Services.GetRequiredService<AudioRecorder>();
             speech = host.Services.GetRequiredService<ParakeetTranscriber>();
@@ -158,6 +159,12 @@ public partial class App : Application
             if (e.Args.Contains("--verify-settings"))
             {
                 await VerifySettingsAsync(); await QuitAsync(); return;
+            }
+            if (e.Args.Contains("--verify-hotkey"))
+            {
+                Log.Information("Hotkey diagnostic passed: {Result}", await HotkeyDiagnostics.RunAsync((HotkeyService)hotkey, Dispatcher));
+                await QuitAsync();
+                return;
             }
             if (e.Args.Contains("--smoke-test"))
             {

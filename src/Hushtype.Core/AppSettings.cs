@@ -3,7 +3,7 @@ namespace Hushtype.Core;
 public sealed record AppSettings
 {
     public int SchemaVersion { get; init; } = 1;
-    public int Hotkey { get; init; } = 0xA5;
+    public int Hotkey { get; init; } = DefaultHotkey;
     public string Microphone { get; init; } = "default";
     public string Precision { get; init; } = "int8";
     public int Threads { get; init; } = 4;
@@ -13,6 +13,8 @@ public sealed record AppSettings
     public bool LaunchAtStartup { get; init; }
     public bool OnboardingComplete { get; init; }
     public bool AutomaticUpdates { get; init; }
+    // Right Ctrl types no character on any layout; Right Alt is AltGr on many. Saved choices are kept.
+    public const int DefaultHotkey = 0xA3;
     public static readonly IReadOnlyDictionary<int, string> Hotkeys = new Dictionary<int, string>
     { [0xA5] = "Right Alt", [0xA3] = "Right Ctrl", [0x77] = "F8", [0x78] = "F9", [0x79] = "F10" };
     public void Validate()

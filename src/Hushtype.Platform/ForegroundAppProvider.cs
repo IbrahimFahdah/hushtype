@@ -1,6 +1,4 @@
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
 using Hushtype.Core;
 
@@ -28,17 +26,17 @@ public sealed class ForegroundAppProvider : IForegroundAppProvider
         if (IsElevated(id) && !IsElevated((uint)Environment.ProcessId))
             throw new PasteRefusedException("Windows blocks pasting into administrator windows. Use a non-administrator window.");
     }
-    private static bool IsElevated(uint id)
+    // A process we cannot inspect is treated as not elevated, so the paste is still attempted.
+    internal static bool IsElevated(uint id)
     {
         var process = NativeMethods.OpenProcess(0x1000, false, id);
-        if (process == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot inspect the target window's permissions.");
+        if (process == 0) return false;
         try
         {
-            if (!NativeMethods.OpenProcessToken(process, 8, out var token)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            if (!NativeMethods.OpenProcessToken(process, 8, out var token)) return false;
             try
             {
-                if (!NativeMethods.GetTokenInformation(token, 20, out var elevated, sizeof(int), out _)) throw new Win32Exception(Marshal.GetLastWin32Error());
-                return elevated != 0;
+                return NativeMethods.GetTokenInformation(token, 20, out var elevated, sizeof(int), out _) && elevated != 0;
             }
             finally { NativeMethods.CloseHandle(token); }
         }
