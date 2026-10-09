@@ -4,6 +4,15 @@ Backlog for the next working session. Read [PLAN.md](PLAN.md) and [IMPLEMENTATIO
 
 Repository: https://github.com/IbrahimFahdah/hushtype (public). Releases are published there via Velopack.
 
+## Release process
+1. Bump the version and build packages that check GitHub for updates:
+   `powershell -File scripts/Package.ps1 -Version 0.1.1 -UpdateUrl https://github.com/IbrahimFahdah/hushtype`
+2. Upload as a **draft** release:
+   `.build/tools/vpk.exe upload github --outputDir artifacts/releases --repoUrl https://github.com/IbrahimFahdah/hushtype --token <gh auth token> --releaseName "Hushtype 0.1.1" --tag v0.1.1`
+3. Review the draft on GitHub, then publish it. Installed apps only see **published, non-prerelease** releases (`GithubSource(..., prerelease: false)`).
+
+Packages are unsigned, so Windows SmartScreen will warn on first install until code signing is set up.
+
 ## Source of the feature ideas
 
 Several items below come from comparing against [per-simmons/murmur-youtube](https://github.com/per-simmons/murmur-youtube) (Windows port under `windows/`, Avalonia, .NET 10). **That repository has no license, so treat it as reference for ideas only — do not copy its code.** Re-implement in our style.
