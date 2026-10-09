@@ -74,6 +74,10 @@ public partial class App : Application
             customDataDirectory = index >= 0;
             settingsStore = new SettingsStore(Path.Combine(customDataDirectory ? directory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Hushtype"), "settings.json"));
             Log.Logger = new LoggerConfiguration().WriteTo.File(Path.Combine(directory, "logs", "hushtype-.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7).CreateLogger();
+            // Forced EcoQoS made inference ~7.5x slower (3.9 s vs 0.52 s for 11 s of audio); a tray app
+            // is otherwise a candidate for it whenever Windows decides to save power.
+            try { ProcessPower.SetExecutionSpeedThrottling(ProcessPower.Throttling.Off); }
+            catch (Exception ex) { Log.Warning(ex, "Could not opt out of power throttling"); }
             try
             {
                 settings = await settingsStore.LoadAsync(Path.Combine(directory, "ui-preferences.json"));

@@ -41,4 +41,7 @@ internal static class NativeMethods
     [DllImport("advapi32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool OpenProcessToken(nint process, uint access, out nint token);
     [DllImport("advapi32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool GetTokenInformation(nint token, int kind, out int value, int size, out int returned);
     [DllImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool CloseHandle(nint handle);
+    [StructLayout(LayoutKind.Sequential)] internal struct PowerThrottlingState { public uint Version, ControlMask, StateMask; }
+    [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool SetProcessInformation(nint process, int informationClass, ref PowerThrottlingState information, int size);
+    [DllImport("kernel32.dll")] internal static extern nint GetCurrentProcess();
 }

@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Hushtype.Audio;
+using Hushtype.Platform;
 using Hushtype.Speech;
 
 if (args.Length > 0 && args[0] == "--benchmark")
@@ -37,6 +38,28 @@ if (args.Length > 0 && args[0] == "--benchmark")
     return;
 }
 
+if (args.Length > 0 && args[0] == "--throttle-benchmark")
+{
+    // --throttle-benchmark file.wav data-directory runs default|off|on output.json
+    if (args.Length != 6) throw new ArgumentException("Usage: --throttle-benchmark file.wav data-directory runs default|off|on output.json");
+    var mode = args[4] switch { "off" => ProcessPower.Throttling.Off, "on" => ProcessPower.Throttling.On, _ => ProcessPower.Throttling.SystemDefault };
+    ProcessPower.SetExecutionSpeedThrottling(mode);
+    using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+    using var transcriber = new ParakeetTranscriber(new ModelManager(http, Path.Combine(Path.GetFullPath(args[2]), "models")), new SpeechConfiguration());
+    await transcriber.InitializeAsync(new Progress<ModelProgress>(), default);
+    var samples = WaveFileSamples.Read(args[1]);
+    var times = new List<double>();
+    for (var i = 0; i < int.Parse(args[3]); i++)
+    {
+        var watch = Stopwatch.StartNew();
+        await transcriber.TranscribeAsync(samples, new("en"), default);
+        times.Add(Math.Round(watch.Elapsed.TotalMilliseconds));
+        await Task.Delay(500); // idle gap, as between real dictations
+    }
+    var sorted = times.Order().ToList();
+    await File.WriteAllTextAsync(args[5], JsonSerializer.Serialize(new { mode = args[4], power = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus.ToString(), runs = times.Count, median_ms = sorted[sorted.Count / 2], p90_ms = sorted[(int)(sorted.Count * 0.9)], min_ms = sorted[0], max_ms = sorted[^1], times }));
+    return;
+}
 if (args.Length > 0 && args[0] == "--boundary-benchmark")
 {
     // --boundary-benchmark file.wav reference.txt data-directory: fixed windows vs cuts at pauses.

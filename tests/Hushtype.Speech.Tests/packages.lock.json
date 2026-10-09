@@ -131,6 +131,12 @@
       "hushtype.core": {
         "type": "Project"
       },
+      "hushtype.platform": {
+        "type": "Project",
+        "dependencies": {
+          "Hushtype.Core": "[1.0.0, )"
+        }
+      },
       "hushtype.speech": {
         "type": "Project",
         "dependencies": {
